@@ -7,10 +7,11 @@ type key. (* symetric key *)
 free c: channel.
 free A,B: host.
 
-
+(* converters *)
+fun key_to_bitstring(key): bitstring [data, typeConverter].
+fun bitstring_to_key(bitstring): key [data, typeConverter].
 
 (* symetric encryption *)
-
 fun senc(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
 
@@ -23,19 +24,27 @@ fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
 (* ------------------------------------------------------------------ *)
-let clientA( A:host ) =
-	out(c, A). (* 1: A->B *)
+let clientA( Kas:key, A:host, B:host, n_a:nonce ) =
+	out(c, A); (* 1a: A->B *)
+	in(c, xS:bitstring); (* 3b receive message from server *)
+	let(xS1:bitstring, xS2:bitstring) = xS in
+	let(=B,n_b:nonce,Kab:key) = sdec(xS1,Kas) in
+	out(c, ( xS2,senc((n_b,n_a),Kab) ) ). (* 4a send message to B *)
 
 let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
-	in(c, xA:bitstring);
-	let (=A, y:bitstring) = xA in
-	out(c, (B, senc((A, n_b), Kbs))).  (* 2a: B->S *)
+	in(c, xA:bitstring); (* 1b: receive message from A *)
+	let(=A, y:bitstring) = xA in (* 1c: validate identity of A *)
+	out(c, (B, senc((A, n_b), Kbs)));  (* 2a: Send message to server *)
+	in(c, yA:bitstring ); (* 4b receive message from A *)
+	let(yA1:bitstring, yA2:bitstring) = yA in
+	let(Kab:key) = bitstring_to_key(sdec(yA1, Kbs)) in
+	let(=n_b, n_a:nonce) = sdec(yA2, Kab).
 
 let server( Kas:key, Kbs:key, Kab:key, A:host, B:host ) =	
-	in(c, xB:bitstring); (* 2b receive *)
-	let (=B, yB:bitstring) = xB in (* 2c: validate B *)
-	let (=A, n_b:nonce) = sdec(yB, Kbs) in (* 2d: validate A *)
-	out(c, (senc((B, n_b, Kab), Kas))). (* 3: S->A *)
+	in(c, xB:bitstring); (* 2b receive message from B *)
+	let(=B, yB:bitstring) = xB in (* 2c: validate indentity of B *)
+	let(=A, n_b:nonce) = sdec(yB, Kbs) in (* 2d: validate A *)
+	out(c, (senc((B, n_b, Kab), Kas), senc(key_to_bitstring(Kab), Kbs))). (* 3a: S->A *)
 	
 process
 	(* new skA: skey; new skB: skey; new skC: skey; *)
@@ -45,7 +54,7 @@ process
 	new Kas: key;
 	new Kbs: key;
 	(
-	 (! clientA(A)) |
+	 (! new n_a: nonce; clientA(Kas, A, B, n_a)) |
 	 (! new n_b: nonce; clientB(Kbs, A, B, n_b)) |
 	 (! new Kab: key; server(Kas, Kbs, Kab, A, B))
 	)
