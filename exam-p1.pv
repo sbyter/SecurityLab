@@ -1,0 +1,46 @@
+(* protocol 1 *)
+
+type host.
+type nonce.
+type key. (* symetric key *)
+
+free c: channel.
+free A,B: host.
+
+
+
+(* symetric encryption *)
+
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
+
+(* asymetric encryption *)
+type pkey. (* public key *)
+type skey. (* private key *)
+
+fun pk(skey): pkey. (* unary constructor *)
+fun aenc(bitstring, pkey): bitstring.
+reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
+
+(* ------------------------------------------------------------------ *)
+let clientA( A:host ) =
+	out(c, A). (* 1: A->B *)
+
+let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
+	in(c, x:bitstring);
+	let (=A, y:bitstring) = x in
+	out(c, (B, senc((A, n_b), Kbs))).  (* 2: B->S *)
+
+(* let clientS(Kas:key, Kbs:key, A:host, B:host, n_b:nonce) =	
+	out(c, (senc((B, n_b, Kab), Kas); 3: S->A *)
+
+process
+	(* new skA: skey; new skB: skey; new skC: skey; *)
+	(* let pkA = pk(skA) in let pkB = pk(skB) in let pkC = pk(skC) in *)
+	(* out(c, pkA); out(c, pkB); out(c, skC); *)
+	
+	new Kbs: key;
+	(
+	 (! clientA(A)) |
+	 (! new n_b: nonce; clientB(Kbs, A, B, n_b)) 
+	)
