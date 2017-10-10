@@ -1,0 +1,52 @@
+(* protocol 2 *)
+
+type host.
+type nonce.
+type key. (* symetric key *)
+
+free c: channel.
+free A,B: host.
+
+(* converters *)
+fun key_to_bitstring(key): bitstring [data, typeConverter].
+fun bitstring_to_key(bitstring): key [data, typeConverter].
+fun bitstring_to_nonce(bitstring): nonce [data, typeConverter].
+fun nonce_to_bitstring(nonce): bitstring [data, typeConverter].
+
+(* symetric encryption *)
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
+
+(* asymetric encryption *)
+type pkey. (* public key *)
+type skey. (* private key *)
+
+fun pk(skey): pkey. (* unary constructor *)
+fun aenc(bitstring, pkey): bitstring.
+reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
+
+event begin(host,host,key).
+event end(host,host,key).
+
+let clientA(pkA:key, skA:key, ,A:host, B:host) =
+	out(c, (senc((aenc(A, pkB), B), Kas) ); (* 6a: send message to S *)
+	
+	
+let clientB() =
+	in(c, ) (* *)
+
+let server() =
+	in(c, xA:bitstring); (* 6b: receive message from A *)
+	let(xA1:bitstring,=B) = sdec(xA, Kas) in
+	(* verify ident of A in xA1 *)
+	out(c, senc(xA1, Kbs) (* 7a: send message to B *)
+	
+
+ process
+	new skA: skey; new skB: skey; (* private keys *)
+	let pkA = pk(skA) in 
+	let pkB = pk(skB) in 
+	out(c, pkA); out(c, pkB); out(c, skC); (* publish keys *)
+	(! clientA(pkA, skA, pkB, A, B) ) |
+	(! clientB(pkB, skB, pkA, A, B) )
+
