@@ -1,0 +1,26 @@
+
+
+
+let clientA() =
+	out(c, (A,B)) (* 11a: send message to S *)
+
+	in(c, xS:bitstring) (* 12b *)
+	let(=B,Kab:key) = adec(xS, pkA) in
+	out(c, senc((A,aenc(M, pkB)), Kab) (* 14a *)
+
+let clientB() =
+	in(c, xS:bitstring) (* 13b *)
+	let(=A,Kab:key) = adec(xS, pkB) in
+	in(c, xA:bitstring) (* 14b *)
+	let(=A,xA1:bitstring) = sdec(xA, Kab) in
+	let(M) = adec(xA1, skB) in
+	event()	
+
+let server(skA:skey, skB:key) =
+	in(c, xA:bitstring); (* 11b: receive message from A *)
+	(* verify A and B *)
+	new Kab:key;
+	out(c, aenc((B,Kab), skA)); (* 12a: send message to A *)
+	out(c, aenc((A,Kab), skB)); (* 13a: send message to B *)
+	
+	
