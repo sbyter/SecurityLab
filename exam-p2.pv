@@ -10,12 +10,20 @@ free A,B: host.
 (* converters *)
 fun key_to_bitstring(key): bitstring [data, typeConverter].
 fun bitstring_to_key(bitstring): key [data, typeConverter].
+
 fun bitstring_to_nonce(bitstring): nonce [data, typeConverter].
 fun nonce_to_bitstring(nonce): bitstring [data, typeConverter].
+
+fun host_to_bitstring(host): bitstring [data, typeConverter].
+fun bitstring_to_host(bitstring): host [data, typeConverter].
+
+fun nonce_to_key(nonce): key [data, typeConverter].
 
 (* symetric encryption *)
 fun senc(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
+
+fun h(bitstring): bitstring.
 
 (* asymetric encryption *)
 type pkey. (* public key *)
@@ -25,28 +33,46 @@ fun pk(skey): pkey. (* unary constructor *)
 fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
-event begin(host,host,key).
-event end(host,host,key).
+event begin(host,host,bitstring).
+event end(host,host,bitstring).
 
-let clientA(pkA:key, skA:key, ,A:host, B:host) =
-	out(c, (senc((aenc(A, pkB), B), Kas) ); (* 6a: send message to S *)
+let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, Kas:key, M:bitstring) =
+	event begin(A, B, M);
+	out(c, (senc((aenc(host_to_bitstring(A), pkB), B), Kas))); (* 6a: send message to S *)
+	in(c, xB:bitstring); (* 8b: receive message from B *)
+	let(n_b:nonce) = bitstring_to_nonce(adec(xB, skA)) in 
+	out(c, senc(M, nonce_to_key(n_b))); (* 9a: send message to B *)
+	in(c, xH:bitstring); (* 10b *)
+	let(=h(M)) = xH in
+	event end(A, B, M).
 	
-	
-let clientB() =
-	in(c, ) (* *)
+let clientB(pkB:pkey, skB:skey, pkA:pkey, Kbs:key, A:host, B:host, n_b:nonce) =
+	in(c, xS:bitstring); (* 7b: receive message from S *)
+	let(xS1:bitstring) = sdec(xS, Kbs) in
+	let(=A) = bitstring_to_host(adec(xS1, skB)) in
+	out(c, aenc(nonce_to_bitstring(n_b), pkA)); (* 8a: send message to A *)
+	in(c, xA:bitstring); (* 9b: receive message from A *)
+	let(M:bitstring) = sdec(xA, nonce_to_key(n_b)) in
+	out(c, h(M)). (* 10a: send message to B *)
 
-let server() =
+let server(Kas:key, Kbs:key, A:host, B:host) =
 	in(c, xA:bitstring); (* 6b: receive message from A *)
 	let(xA1:bitstring,=B) = sdec(xA, Kas) in
 	(* verify ident of A in xA1 *)
-	out(c, senc(xA1, Kbs) (* 7a: send message to B *)
-	
+	out(c, senc(xA1, Kbs)). (* 7a: send message to B *)
 
  process
-	new skA: skey; new skB: skey; (* private keys *)
+	new skA: skey; (* private keys *)
+	new skB: skey; 
+	
+	new Kas: key; (* server keys *)
+	new Kbs: key;
+	
 	let pkA = pk(skA) in 
 	let pkB = pk(skB) in 
-	out(c, pkA); out(c, pkB); out(c, skC); (* publish keys *)
-	(! clientA(pkA, skA, pkB, A, B) ) |
-	(! clientB(pkB, skB, pkA, A, B) )
+	out(c, pkA); out(c, pkB); (* publish keys *)
+	in(c, M: bitstring);
+	(! clientA(pkA, skA, pkB, A, B, Kas, M) ) |
+	(! new n_b: nonce; clientB(pkB, skB, pkA, Kbs, A, B, n_b) ) |
+	(! server(Kas, Kbs, A, B))
 
