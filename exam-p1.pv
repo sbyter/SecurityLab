@@ -10,6 +10,8 @@ free A,B: host.
 (* converters *)
 fun key_to_bitstring(key): bitstring [data, typeConverter].
 fun bitstring_to_key(bitstring): key [data, typeConverter].
+fun bitstring_to_nonce(bitstring): nonce [data, typeConverter].
+fun nonce_to_bitstring(nonce): bitstring [data, typeConverter].
 
 (* symetric encryption *)
 fun senc(bitstring, key): bitstring.
@@ -23,13 +25,23 @@ fun pk(skey): pkey. (* unary constructor *)
 fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
+event begin(host,host,key).
+event end(host,host,key).
+
+free Kab: key [private].
+
+query attacker(Kab).
+
 (* ------------------------------------------------------------------ *)
 let clientA( Kas:key, A:host, B:host, n_a:nonce ) =
+	event begin(A, B, Kas);
 	out(c, A); (* 1a: A->B *)
 	in(c, xS:bitstring); (* 3b receive message from server *)
 	let(xS1:bitstring, xS2:bitstring) = xS in
-	let(=B,n_b:nonce,Kab:key) = sdec(xS1,Kas) in
-	out(c, ( xS2,senc((n_b,n_a),Kab) ) ). (* 4a send message to B *)
+	let(=B, n_b:nonce, Kab:key) = sdec(xS1,Kas) in
+	out(c, ( xS2,senc((n_b,n_a),Kab) ) ); (* 4a send message to B *)
+	in(c, xA:bitstring);
+	let(=n_a) = bitstring_to_nonce(sdec(xA, Kab)).
 
 let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
 	in(c, xA:bitstring); (* 1b: receive message from A *)
@@ -37,8 +49,10 @@ let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
 	out(c, (B, senc((A, n_b), Kbs)));  (* 2a: Send message to server *)
 	in(c, yA:bitstring ); (* 4b receive message from A *)
 	let(yA1:bitstring, yA2:bitstring) = yA in
-	let(Kab:key) = bitstring_to_key(sdec(yA1, Kbs)) in
-	let(=n_b, n_a:nonce) = sdec(yA2, Kab).
+	let(Kab) = bitstring_to_key(sdec(yA1, Kbs)) in
+	let(=n_b, n_a:nonce) = sdec(yA2, Kab) in
+	out(c, senc(nonce_to_bitstring(n_a), Kab)); (* 5a: send message to A *)
+	event end(A, B, Kab).
 
 let server( Kas:key, Kbs:key, Kab:key, A:host, B:host ) =	
 	in(c, xB:bitstring); (* 2b receive message from B *)
@@ -56,5 +70,5 @@ process
 	(
 	 (! new n_a: nonce; clientA(Kas, A, B, n_a)) |
 	 (! new n_b: nonce; clientB(Kbs, A, B, n_b)) |
-	 (! new Kab: key; server(Kas, Kbs, Kab, A, B))
+	 (! server(Kas, Kbs, Kab, A, B))
 	)
