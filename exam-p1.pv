@@ -1,4 +1,5 @@
 (* protocol 1 *)
+set traceDisplay = long.
 
 type host.
 type nonce.
@@ -30,7 +31,8 @@ event end(host,host,key).
 
 free Kab: key [private].
 
-query attacker(Kab).
+query attacker(Kab). (* *)
+query k:key; event(end(A,B,k)) ==> event(begin(A,B,k)).
 
 (* ------------------------------------------------------------------ *)
 let clientA( Kas:key, A:host, B:host, n_a:nonce ) =
