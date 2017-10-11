@@ -26,21 +26,22 @@ fun pk(skey): pkey. (* unary constructor *)
 fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
-event begin(host,host,key).
-event end(host,host,key).
+event beginKey(host,host,key).
+event endKey(host,host,key).
 
 free Kab: key [private].
 
-query attacker(Kab). (* *)
-query k:key; event(end(A,B,k)) ==> event(begin(A,B,k)).
+(* Authentication *)
+query attacker(Kab). (* Confidentiality *)
+query hA:host, hB:host, zAB:key; event(endKey(hA,hB,zAB)) ==> event(beginKey(hA,hB,zAB)).
 
 (* ------------------------------------------------------------------ *)
 let clientA( Kas:key, A:host, B:host, n_a:nonce ) =
-	event begin(A, B, Kas);
 	out(c, A); (* 1a: A->B *)
 	in(c, xS:bitstring); (* 3b receive message from server *)
 	let(xS1:bitstring, xS2:bitstring) = xS in
 	let(=B, n_b:nonce, Kab:key) = sdec(xS1,Kas) in
+	event beginKey(A,B,Kab);
 	out(c, ( xS2,senc((n_b,n_a),Kab) ) ); (* 4a send message to B *)
 	in(c, xA:bitstring);
 	let(=n_a) = bitstring_to_nonce(sdec(xA, Kab)).
@@ -52,9 +53,9 @@ let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
 	in(c, yA:bitstring ); (* 4b receive message from A *)
 	let(yA1:bitstring, yA2:bitstring) = yA in
 	let(Kab) = bitstring_to_key(sdec(yA1, Kbs)) in
+	event endKey(A,B,Kab);
 	let(=n_b, n_a:nonce) = sdec(yA2, Kab) in
-	out(c, senc(nonce_to_bitstring(n_a), Kab)); (* 5a: send message to A *)
-	event end(A, B, Kab).
+	out(c, senc(nonce_to_bitstring(n_a), Kab)). (* 5a: send message to A *)
 
 let server( Kas:key, Kbs:key, Kab:key, A:host, B:host ) =	
 	in(c, xB:bitstring); (* 2b receive message from B *)
