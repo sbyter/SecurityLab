@@ -1,0 +1,45 @@
+Process:
+{1}new Kas: key;
+{2}new Kbs: key;
+(
+    {3}!
+    {4}new n_a: nonce;
+    {5}out(c, A);
+    {6}in(c, xS: bitstring);
+    {7}let (xS1: bitstring,xS2: bitstring) = xS in
+    {8}let (=B,n_b: nonce,KabS: key) = sdec(xS1,Kas) in
+    {9}event beginNonce(A,B,n_b);
+    {10}out(c, (xS2,senc((n_b,n_a),KabS)));
+    {11}in(c, xA: bitstring);
+    {12}let =n_a = sdec(xA,KabS) in
+    0
+) | (
+    {13}!
+    {14}new n_b_42: nonce;
+    {15}in(c, xA_43: bitstring);
+    {16}let (=A,y: bitstring) = xA_43 in
+    {17}out(c, (B,senc((A,n_b_42),Kbs)));
+    {18}in(c, yA: bitstring);
+    {19}let (yA1: bitstring,yA2: bitstring) = yA in
+    {20}let Kab: key = sdec(yA1,Kbs) in
+    {21}let (=n_b_42,n_a_44: nonce) = sdec(yA2,Kab) in
+    {22}event endNonce(A,B,n_b_42);
+    {23}out(c, senc(n_a_44,Kab))
+) | (
+    {24}!
+    {25}new Kab_45: key;
+    {26}in(c, xB: bitstring);
+    {27}let (=B,yB: bitstring) = xB in
+    {28}let (=A,n_b_46: nonce) = sdec(yB,Kbs) in
+    {29}out(c, (senc((B,n_b_46,Kab_45),Kas),senc(Kab_45,Kbs)))
+)
+
+-- Query event(endNonce(hA,hB,n)) ==> event(beginNonce(hA,hB,n))
+Completing...
+Starting query event(endNonce(hA,hB,n)) ==> event(beginNonce(hA,hB,n))
+goal reachable: begin(beginNonce(A[],B[],n_b_42[!1 = @sid_579])) -> end(endNonce(A[],B[],n_b_42[!1 = @sid_579]))
+RESULT event(endNonce(hA,hB,n)) ==> event(beginNonce(hA,hB,n)) is true.
+-- Query not attacker(Kab_45[!1 = v_584])
+Completing...
+Starting query not attacker(Kab_45[!1 = v_584])
+RESULT not attacker(Kab_45[!1 = v_584]) is true.

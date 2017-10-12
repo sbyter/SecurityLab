@@ -1,0 +1,177 @@
+Process:
+{1}new skA: skey;
+{2}new skB: skey;
+{3}new Kas: key;
+{4}new Kbs: key;
+{5}let pkA: pkey = pk(skA) in
+{6}let pkB: pkey = pk(skB) in
+{7}out(c, pkA);
+{8}out(c, pkB);
+(
+    {9}!
+    {10}event beginAuth(A,B,pkB);
+    {11}out(c, senc((aenc(A,pkB),B),Kas));
+    {12}in(c, xB: bitstring);
+    {13}let n_b: nonce = adec(xB,skA) in
+    {14}out(c, senc(M,n_b));
+    {15}in(c, xM: bitstring);
+    {16}if (h(M) = xM) then
+    {17}event endInteg(xM)
+) | (
+    {18}!
+    {19}new n_b_45: nonce;
+    {20}in(c, xS: bitstring);
+    {21}let xS1: bitstring = sdec(xS,Kbs) in
+    {22}let hA: host = adec(xS1,skB) in
+    {23}if (hA = A) then
+    {24}event endAuth(A,B);
+    {25}out(c, aenc(n_b_45,pkA));
+    {26}in(c, xA: bitstring);
+    {27}let Mb: bitstring = sdec(xA,n_b_45) in
+    {28}event beginInteg(h(Mb));
+    {29}out(c, h(Mb))
+) | (
+    {30}!
+    {31}in(c, xA_46: bitstring);
+    {32}let (xA1: bitstring,=B) = sdec(xA_46,Kas) in
+    {33}out(c, senc(xA1,Kbs))
+)
+
+-- Query not attacker(M[])
+Completing...
+Starting query not attacker(M[])
+goal reachable: attacker(M[])
+
+1. The attacker has some term k_382.
+attacker(k_382).
+
+2. The message pk(skA[]) may be sent to the attacker at output {7}.
+attacker(pk(skA[])).
+
+3. By 1, the attacker may know k_382.
+By 2, the attacker may know pk(skA[]).
+Using the function aenc the attacker may obtain aenc(k_382,pk(skA[])).
+attacker(aenc(k_382,pk(skA[]))).
+
+4. The message aenc(k_382,pk(skA[])) that the attacker may have by 3 may be received at input {12}.
+So the message senc(M[],k_382) may be sent to the attacker at output {14}.
+attacker(senc(M[],k_382)).
+
+5. By 4, the attacker may know senc(M[],k_382).
+By 1, the attacker may know k_382.
+Using the function sdec the attacker may obtain M[].
+attacker(M[]).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+new skA: skey creating skA_384 at {1}
+
+new skB: skey creating skB_388 at {2}
+
+new Kas: key creating Kas_389 at {3}
+
+new Kbs: key creating Kbs_390 at {4}
+
+out(c, ~M) with ~M = pk(skA_384) at {7}
+
+out(c, ~M_413) with ~M_413 = pk(skB_388) at {8}
+
+event beginAuth(A,B,pk(skB_388)) at {10} in copy a_383
+
+out(c, ~M_420) with ~M_420 = senc((aenc(A,pk(skB_388)),B),Kas_389) at {11} in copy a_383
+
+in(c, aenc(a,~M)) with aenc(a,~M) = aenc(a,pk(skA_384)) at {12} in copy a_383
+
+out(c, ~M_430) with ~M_430 = senc(M,a) at {14} in copy a_383
+
+The attacker has the message sdec(~M_430,a) = M.
+A trace has been found.
+RESULT not attacker(M[]) is false.
+-- Query event(endInteg(mAB)) ==> event(beginInteg(mAB))
+Completing...
+Starting query event(endInteg(mAB)) ==> event(beginInteg(mAB))
+goal reachable: end(endInteg(h(M[])))
+
+1. The message pk(skA[]) may be sent to the attacker at output {7}.
+attacker(pk(skA[])).
+
+2. The attacker has some term n_b_775.
+attacker(n_b_775).
+
+3. By 2, the attacker may know n_b_775.
+By 1, the attacker may know pk(skA[]).
+Using the function aenc the attacker may obtain aenc(n_b_775,pk(skA[])).
+attacker(aenc(n_b_775,pk(skA[]))).
+
+4. The attacker has some term k_771.
+attacker(k_771).
+
+5. By 4, the attacker may know k_771.
+By 1, the attacker may know pk(skA[]).
+Using the function aenc the attacker may obtain aenc(k_771,pk(skA[])).
+attacker(aenc(k_771,pk(skA[]))).
+
+6. The message aenc(k_771,pk(skA[])) that the attacker may have by 5 may be received at input {12}.
+So the message senc(M[],k_771) may be sent to the attacker at output {14}.
+attacker(senc(M[],k_771)).
+
+7. By 6, the attacker may know senc(M[],k_771).
+By 4, the attacker may know k_771.
+Using the function sdec the attacker may obtain M[].
+attacker(M[]).
+
+8. By 7, the attacker may know M[].
+Using the function h the attacker may obtain h(M[]).
+attacker(h(M[])).
+
+9. The message aenc(n_b_775,pk(skA[])) that the attacker may have by 3 may be received at input {12}.
+The message h(M[]) that the attacker may have by 8 may be received at input {15}.
+So event endInteg(h(M[])) may be executed at {17}.
+end(endInteg(h(M[]))).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+new skA: skey creating skA_782 at {1}
+
+new skB: skey creating skB_790 at {2}
+
+new Kas: key creating Kas_791 at {3}
+
+new Kbs: key creating Kbs_792 at {4}
+
+out(c, ~M_815) with ~M_815 = pk(skA_782) at {7}
+
+out(c, ~M_817) with ~M_817 = pk(skB_790) at {8}
+
+event beginAuth(A,B,pk(skB_790)) at {10} in copy a_781
+
+out(c, ~M_828) with ~M_828 = senc((aenc(A,pk(skB_790)),B),Kas_791) at {11} in copy a_781
+
+event beginAuth(A,B,pk(skB_790)) at {10} in copy a_779
+
+out(c, ~M_830) with ~M_830 = senc((aenc(A,pk(skB_790)),B),Kas_791) at {11} in copy a_779
+
+in(c, aenc(a_778,~M_815)) with aenc(a_778,~M_815) = aenc(a_778,pk(skA_782)) at {12} in copy a_779
+
+out(c, ~M_840) with ~M_840 = senc(M,a_778) at {14} in copy a_779
+
+in(c, aenc(a_780,~M_815)) with aenc(a_780,~M_815) = aenc(a_780,pk(skA_782)) at {12} in copy a_781
+
+out(c, ~M_852) with ~M_852 = senc(M,a_780) at {14} in copy a_781
+
+in(c, h(sdec(~M_840,a_778))) with h(sdec(~M_840,a_778)) = h(M) at {15} in copy a_781
+
+event endInteg(h(M)) at {17} in copy a_781 (goal)
+
+The event endInteg(h(M)) is executed.
+A trace has been found.
+RESULT event(endInteg(mAB)) ==> event(beginInteg(mAB)) is false.
+-- Query event(endAuth(hA_857,hB)) ==> event(beginAuth(hA_857,hB,pkB_858))
+Completing...
+Starting query event(endAuth(hA_857,hB)) ==> event(beginAuth(hA_857,hB,pkB_858))
+goal reachable: begin(beginAuth(A[],B[],pk(skB[]))) -> end(endAuth(A[],B[]))
+RESULT event(endAuth(hA_857,hB)) ==> event(beginAuth(hA_857,hB,pkB_858)) is true.
