@@ -1,26 +1,83 @@
+(* protocol 3 *)
+type host.
+type nonce.
+type key. (* symetric key *)
+type pkey. (* public key *)
+type skey. (* private key *)
 
+free mAB: bitstring [private].
 
+free c: channel.
+free A,B: host.
 
-let clientA() =
-	out(c, (A,B)) (* 11a: send message to S *)
+(* converters *)
+fun key_to_bitstring(key): bitstring [data, typeConverter].
+fun bitstring_to_key(bitstring): key [data, typeConverter].
 
-	in(c, xS:bitstring) (* 12b *)
-	let(=B,Kab:key) = adec(xS, pkA) in
-	out(c, senc((A,aenc(M, pkB)), Kab) (* 14a *)
+fun bitstring_to_nonce(bitstring): nonce [data, typeConverter].
+fun nonce_to_bitstring(nonce): bitstring [data, typeConverter].
 
-let clientB() =
-	in(c, xS:bitstring) (* 13b *)
-	let(=A,Kab:key) = adec(xS, pkB) in
-	in(c, xA:bitstring) (* 14b *)
+fun host_to_bitstring(host): bitstring [data, typeConverter].
+fun bitstring_to_host(bitstring): host [data, typeConverter].
+
+fun nonce_to_key(nonce): key [data, typeConverter].
+
+fun pkey_to_skey(pkey): skey [data, typeConverter].
+fun skey_to_pkey(skey): pkey [data, typeConverter].
+
+(* symetric encryption *)
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
+
+fun h(bitstring): bitstring.
+
+(* asymetric encryption *)
+
+fun pk(skey): pkey. (* unary constructor *)
+fun aenc(bitstring, pkey): bitstring.
+reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
+
+event beginMessage(host,host,bitstring).
+event endMessage(host,host,bitstring).
+
+(* Confidentiality *)
+query attacker(mAB). 
+(* Authentication *)
+query hA:host, hB:host, mAB:bitstring; event(endMessage(hA,hB,mAB)) ==> event(beginMessage(hA,hB,mAB)).
+
+(* ------------------------------------------------------------------ *)
+let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, M:bitstring) =
+	event beginMessage(A,B,M);
+	out(c, (A,B)); (* 11a: send message to S *)
+	in(c, xS:bitstring); (* 12b: receive message from server *)
+	let(=B,Kab:key) = adec(xS, pkey_to_skey(pkB)) in
+	out(c, senc((A,aenc(M, pkB)), Kab)). (* 14a: send message to B *)
+
+let clientB(pkB:pkey, skB:skey, A:host, B:host) =
+	in(c, xS:bitstring); (* 13b receive message from server *)
+	let(=A,Kab:key) = adec(xS, pkey_to_skey(pkB)) in
+	in(c, xA:bitstring); (* 14b *)
 	let(=A,xA1:bitstring) = sdec(xA, Kab) in
-	let(M) = adec(xA1, skB) in
-	event()	
+	let(M:bitstring) = adec(xA1, skB) in
+	event endMessage(A,B,M).
 
-let server(skA:skey, skB:key) =
+let server(skA:skey, skB:skey, A:host, B:host) =
 	in(c, xA:bitstring); (* 11b: receive message from A *)
-	(* verify A and B *)
+	let(=A, =B) = xA in
 	new Kab:key;
-	out(c, aenc((B,Kab), skA)); (* 12a: send message to A *)
-	out(c, aenc((A,Kab), skB)); (* 13a: send message to B *)
+	out(c, aenc((B,Kab), skey_to_pkey(skA))); (* 12a: send message to A *)
+	out(c, aenc((A,Kab), skey_to_pkey(skB))). (* 13a: send message to B *)
 	
+process
+	new skA: skey; (* private keys *)
+	new skB: skey; 
+		
+	let pkA = pk(skA) in 
+	let pkB = pk(skB) in 
+	out(c, pkA); out(c, pkB); (* publish keys *)
+	in(c, M: bitstring);
+	(! clientA(pkA, skA, pkB, A, B, M) ) |
+	(! clientB(pkB, skB, A, B) ) |
+	(! server(skA, skB, A, B))
 	
+(* ------------------------------------------------------------------ *)

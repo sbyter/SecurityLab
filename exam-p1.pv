@@ -31,8 +31,9 @@ event endKey(host,host,key).
 
 free Kab: key [private].
 
+(* Confidentiality *)
+query attacker(Kab). 
 (* Authentication *)
-query attacker(Kab). (* Confidentiality *)
 query hA:host, hB:host, zAB:key; event(endKey(hA,hB,zAB)) ==> event(beginKey(hA,hB,zAB)).
 
 (* ------------------------------------------------------------------ *)

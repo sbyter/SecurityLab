@@ -36,6 +36,13 @@ reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 event begin(host,host,bitstring).
 event end(host,host,bitstring).
 
+(* Authentication *)
+query hA:host, hB:host, mAB:bitstring; event(endMessage(hA,hB,mAB)) ==> event(beginMessage(hA,hB,mAB)).
+(* Integrity *)
+
+(* Confidentiality *)
+query attacker(mAB). 
+
 let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, Kas:key, M:bitstring) =
 	event begin(A, B, M);
 	out(c, (senc((aenc(host_to_bitstring(A), pkB), B), Kas))); (* 6a: send message to S *)
@@ -75,4 +82,5 @@ let server(Kas:key, Kbs:key, A:host, B:host) =
 	(! clientA(pkA, skA, pkB, A, B, Kas, M) ) |
 	(! new n_b: nonce; clientB(pkB, skB, pkA, Kbs, A, B, n_b) ) |
 	(! server(Kas, Kbs, A, B))
+	
 
