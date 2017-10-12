@@ -1,4 +1,5 @@
 (* protocol 3 *)
+
 type host.
 type nonce.
 type key. (* symetric key *)
@@ -9,6 +10,7 @@ free mAB: bitstring [private].
 
 free c: channel.
 free A,B: host.
+free M: bitstring [private].
 
 (* converters *)
 fun key_to_bitstring(key): bitstring [data, typeConverter].
@@ -37,30 +39,32 @@ fun pk(skey): pkey. (* unary constructor *)
 fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
-event beginMessage(host,host,bitstring).
-event endMessage(host,host,bitstring).
-
 (* Confidentiality *)
-query attacker(mAB). 
+query attacker(M).
+
 (* Authentication *)
-query hA:host, hB:host, mAB:bitstring; event(endMessage(hA,hB,mAB)) ==> event(beginMessage(hA,hB,mAB)).
+event beginAuth(host,host).
+event endAuth(host,host).
+
+query hA:host, hB:host; event(endAuth(hA,hB)) ==> event(beginAuth(hA,hB)).
 
 (* ------------------------------------------------------------------ *)
-let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, M:bitstring) =
-	event beginMessage(A,B,M);
+let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, Ma:bitstring) =
 	out(c, (A,B)); (* 11a: send message to S *)
 	in(c, xS:bitstring); (* 12b: receive message from server *)
 	let(=B,Kab:key) = adec(xS, pkey_to_skey(pkB)) in
-	out(c, senc((A,aenc(M, pkB)), Kab)). (* 14a: send message to B *)
+	event beginAuth(A,B);
+	out(c, senc((A,aenc(Ma, pkB)), Kab)). (* 14a: send message to B *)
 
 let clientB(pkB:pkey, skB:skey, A:host, B:host) =
 	in(c, xS:bitstring); (* 13b receive message from server *)
 	let(=A,Kab:key) = adec(xS, pkey_to_skey(pkB)) in
-	in(c, xA:bitstring); (* 14b *)
-	let(=A,xA1:bitstring) = sdec(xA, Kab) in
-	let(M:bitstring) = adec(xA1, skB) in
-	event endMessage(A,B,M).
-
+	in(c, xA:bitstring); (* 14b receive message from A *)
+	let(xA1:bitstring,xA2:bitstring) = sdec(xA, Kab) in
+	let(Mb:bitstring) = adec(xA2, skB) in 
+	if A = bitstring_to_host(xA1) then
+	event endAuth(A,B).
+	
 let server(skA:skey, skB:skey, A:host, B:host) =
 	in(c, xA:bitstring); (* 11b: receive message from A *)
 	let(=A, =B) = xA in
@@ -75,9 +79,10 @@ process
 	let pkA = pk(skA) in 
 	let pkB = pk(skB) in 
 	out(c, pkA); out(c, pkB); (* publish keys *)
-	in(c, M: bitstring);
-	(! clientA(pkA, skA, pkB, A, B, M) ) |
-	(! clientB(pkB, skB, A, B) ) |
-	(! server(skA, skB, A, B))
+	(
+	  (! clientA(pkA, skA, pkB, A, B, M) ) |
+	  (! clientB(pkB, skB, A, B) ) |
+	  (! server(skA, skB, A, B))
+	)
 	
 (* ------------------------------------------------------------------ *)
