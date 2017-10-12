@@ -6,6 +6,7 @@ type key. (* symetric key *)
 
 free c: channel.
 free A,B: host.
+free M:bitstring [private]. (* message *)
 
 (* converters *)
 fun key_to_bitstring(key): bitstring [data, typeConverter].
@@ -19,11 +20,12 @@ fun bitstring_to_host(bitstring): host [data, typeConverter].
 
 fun nonce_to_key(nonce): key [data, typeConverter].
 
+(* hash *)
+fun h(bitstring): bitstring.
+
 (* symetric encryption *)
 fun senc(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; sdec(senc(m,k),k) = m.
-
-fun h(bitstring): bitstring.
 
 (* asymetric encryption *)
 type pkey. (* public key *)
@@ -33,34 +35,43 @@ fun pk(skey): pkey. (* unary constructor *)
 fun aenc(bitstring, pkey): bitstring.
 reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
-event begin(host,host,bitstring).
-event end(host,host,bitstring).
-
 (* Authentication *)
-query hA:host, hB:host, mAB:bitstring; event(endMessage(hA,hB,mAB)) ==> event(beginMessage(hA,hB,mAB)).
+event beginAuth(host,host, pkey).
+event endAuth(host,host).
+
+query hA:host, hB:host, pkB:pkey; event(endAuth(hA,hB)) ==> event(beginAuth(hA,hB,pkB)).
+
 (* Integrity *)
+event beginInteg(bitstring).
+event endInteg(bitstring).
+
+query mAB:bitstring; event(endInteg(mAB)) ==> event(beginInteg(mAB)).
 
 (* Confidentiality *)
-query attacker(mAB). 
+query attacker(M). 
 
-let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, Kas:key, M:bitstring) =
-	event begin(A, B, M);
+let clientA(pkA:pkey, skA:skey, pkB:pkey, A:host, B:host, Kas:key, Ma:bitstring) =
+	
+	event beginAuth(A,B, pkB);
 	out(c, (senc((aenc(host_to_bitstring(A), pkB), B), Kas))); (* 6a: send message to S *)
 	in(c, xB:bitstring); (* 8b: receive message from B *)
 	let(n_b:nonce) = bitstring_to_nonce(adec(xB, skA)) in 
-	out(c, senc(M, nonce_to_key(n_b))); (* 9a: send message to B *)
-	in(c, xH:bitstring); (* 10b *)
-	let(=h(M)) = xH in
-	event end(A, B, M).
+	out(c, senc(Ma, nonce_to_key(n_b))); (* 9a: send message to B *)
+	in(c, xM:bitstring); (* 10b *)
+	if h(M) = xM then
+	event endInteg(xM).
 	
 let clientB(pkB:pkey, skB:skey, pkA:pkey, Kbs:key, A:host, B:host, n_b:nonce) =
 	in(c, xS:bitstring); (* 7b: receive message from S *)
 	let(xS1:bitstring) = sdec(xS, Kbs) in
-	let(=A) = bitstring_to_host(adec(xS1, skB)) in
+	let(hA) = bitstring_to_host(adec(xS1, skB)) in
+	if hA = A then
+	event endAuth(A,B); (* B believes she talks to A *)
 	out(c, aenc(nonce_to_bitstring(n_b), pkA)); (* 8a: send message to A *)
 	in(c, xA:bitstring); (* 9b: receive message from A *)
-	let(M:bitstring) = sdec(xA, nonce_to_key(n_b)) in
-	out(c, h(M)). (* 10a: send message to B *)
+	let(Mb:bitstring) = sdec(xA, nonce_to_key(n_b)) in
+	event beginInteg(h(Mb));
+	out(c, h(Mb)). (* 10a: send message to B *)
 
 let server(Kas:key, Kbs:key, A:host, B:host) =
 	in(c, xA:bitstring); (* 6b: receive message from A *)
@@ -78,9 +89,10 @@ let server(Kas:key, Kbs:key, A:host, B:host) =
 	let pkA = pk(skA) in 
 	let pkB = pk(skB) in 
 	out(c, pkA); out(c, pkB); (* publish keys *)
-	in(c, M: bitstring);
-	(! clientA(pkA, skA, pkB, A, B, Kas, M) ) |
-	(! new n_b: nonce; clientB(pkB, skB, pkA, Kbs, A, B, n_b) ) |
-	(! server(Kas, Kbs, A, B))
+	(
+	  (! clientA(pkA, skA, pkB, A, B, Kas, M) ) |
+	  (! new n_b: nonce; clientB(pkB, skB, pkA, Kbs, A, B, n_b) ) |
+	  (! server(Kas, Kbs, A, B))
+	)
 	
 

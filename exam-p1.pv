@@ -1,5 +1,5 @@
 (* protocol 1 *)
-set traceDisplay = long.
+(* set traceDisplay = long. *)
 
 type host.
 type nonce.
@@ -28,24 +28,24 @@ reduc forall m: bitstring, k: skey; adec(aenc(m, pk(k)), k) = m.
 
 event beginKey(host,host,key).
 event endKey(host,host,key).
-
-free Kab: key [private].
+event beginNonce(host,host,nonce).
+event endNonce(host,host,nonce).
 
 (* Confidentiality *)
-query attacker(Kab). 
+query attacker(new Kab). 
 (* Authentication *)
-query hA:host, hB:host, zAB:key; event(endKey(hA,hB,zAB)) ==> event(beginKey(hA,hB,zAB)).
+query hA:host, hB:host, n:nonce; event(endNonce(hA,hB,n)) ==> event(beginNonce(hA,hB,n)).
 
 (* ------------------------------------------------------------------ *)
 let clientA( Kas:key, A:host, B:host, n_a:nonce ) =
 	out(c, A); (* 1a: A->B *)
 	in(c, xS:bitstring); (* 3b receive message from server *)
 	let(xS1:bitstring, xS2:bitstring) = xS in
-	let(=B, n_b:nonce, Kab:key) = sdec(xS1,Kas) in
-	event beginKey(A,B,Kab);
-	out(c, ( xS2,senc((n_b,n_a),Kab) ) ); (* 4a send message to B *)
+	let(=B, n_b:nonce, KabS:key) = sdec(xS1,Kas) in
+	event beginNonce(A,B,n_b);
+	out(c, ( xS2,senc((n_b,n_a),KabS) ) ); (* 4a send message to B *)
 	in(c, xA:bitstring);
-	let(=n_a) = bitstring_to_nonce(sdec(xA, Kab)).
+	let(=n_a) = bitstring_to_nonce(sdec(xA, KabS)).
 
 let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
 	in(c, xA:bitstring); (* 1b: receive message from A *)
@@ -54,8 +54,8 @@ let clientB( Kbs:key, A:host, B:host, n_b:nonce ) =
 	in(c, yA:bitstring ); (* 4b receive message from A *)
 	let(yA1:bitstring, yA2:bitstring) = yA in
 	let(Kab) = bitstring_to_key(sdec(yA1, Kbs)) in
-	event endKey(A,B,Kab);
 	let(=n_b, n_a:nonce) = sdec(yA2, Kab) in
+	event endNonce(A,B,n_b);
 	out(c, senc(nonce_to_bitstring(n_a), Kab)). (* 5a: send message to A *)
 
 let server( Kas:key, Kbs:key, Kab:key, A:host, B:host ) =	
@@ -65,14 +65,11 @@ let server( Kas:key, Kbs:key, Kab:key, A:host, B:host ) =
 	out(c, (senc((B, n_b, Kab), Kas), senc(key_to_bitstring(Kab), Kbs))). (* 3a: S->A *)
 	
 process
-	(* new skA: skey; new skB: skey; new skC: skey; *)
-	(* let pkA = pk(skA) in let pkB = pk(skB) in let pkC = pk(skC) in *)
-	(* out(c, pkA); out(c, pkB); out(c, skC); *)
 	
 	new Kas: key;
 	new Kbs: key;
 	(
 	 (! new n_a: nonce; clientA(Kas, A, B, n_a)) |
 	 (! new n_b: nonce; clientB(Kbs, A, B, n_b)) |
-	 (! server(Kas, Kbs, Kab, A, B))
+	 (! new Kab:key; server(Kas, Kbs, Kab, A, B))
 	)
